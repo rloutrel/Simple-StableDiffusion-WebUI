@@ -226,6 +226,8 @@ function renderResult(container, htmlText) {
 // image can be displayed as soon as it is ready instead of waiting for
 // the whole batch to complete.
 async function submitGeneration(form, resultEl, endpoint, extraFields) {
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.dataset.label = submitBtn.textContent; submitBtn.textContent = 'Generating\u2026'; }
   resultEl.innerHTML =
     '<div class="spinner">Generating&hellip; (may take a while depending on steps/size)</div>' +
     '<div class="gallery" id="liveGallery"></div>';
@@ -290,6 +292,8 @@ async function submitGeneration(form, resultEl, endpoint, extraFields) {
     if (buf.trim()) handleEvent(JSON.parse(buf));
   } catch (err) {
     resultEl.innerHTML = '<div class="error">Network error: ' + err + '</div>';
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; if (submitBtn.dataset.label) submitBtn.textContent = submitBtn.dataset.label; }
   }
 }
 function fileToDataURL(file) {
