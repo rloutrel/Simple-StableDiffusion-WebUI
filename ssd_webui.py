@@ -171,6 +171,21 @@ def save_config(name: str, data: dict) -> str:
     return f"{stem}.json"
 
 
+def delete_config(name: str) -> bool:
+    """Deletes a user-saved preset (<name>.json) from the config dir. Only the
+    user config is removed, never a shipped template. Returns True if a file
+    was deleted, False if it did not exist (templates are never deleted)."""
+    stem = _safe_config_name(name)
+    if not stem:
+        return False
+    fpath = CONFIG["config_dir"] / f"{stem}.json"
+    try:
+        fpath.unlink()
+        return True
+    except FileNotFoundError:
+        return False
+
+
 ########################################################################
 # HTML templates (plain Python strings, no external templating engine) #
 ########################################################################
@@ -333,6 +348,9 @@ def model_fieldset_html(meta: dict) -> str:
         </div>
         <div style="flex:0 0 auto;">
           <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.55rem 1rem;">Save</button>
+        </div>
+        <div style="flex:0 0 auto;">
+          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.55rem .8rem;">&#128465;</button>
         </div>
       </div>
       {suggestion}
@@ -530,7 +548,36 @@ async function savePreset(form, sel) {
     form._modelBaseline = snapshotForm(form);
     updateSaveState(form);
     updateLoadState(form, sel);
+    updateDeleteState(sel);
     alert('Saved as ' + obj.saved);
+  } catch (err) { alert('Network error: ' + err); }
+}
+
+// Deletes the currently-selected preset, but only a user-saved config
+// (*.json); the bin is disabled for shipped templates (*.json.template),
+// which are read-only.
+async function deletePreset(form, sel) {
+  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+  const name = opt ? opt.value.trim() : '';
+  if (!name) { alert('No preset selected.'); return; }
+  if (opt && opt.dataset.template === '1') { alert('Templates cannot be deleted.'); return; }
+  if (!confirm('Delete the saved config for "' + name + '"?')) return;
+  try {
+    const resp = await fetch('/config/delete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: name})
+    });
+    const obj = await resp.json();
+    if (!resp.ok) { alert(obj.error || 'Delete failed.'); return; }
+    if (sel) await refreshPresets(sel);
+    // If the deleted entry was the model's own, clear the baseline so Save is
+    // offered again to recreate it.
+    if (name === (sel.dataset.model || '').trim()) form._modelBaseline = {};
+    updateSaveState(form);
+    updateLoadState(form, sel);
+    updateDeleteState(sel);
+    alert(obj.deleted ? 'Deleted ' + name : name + ' had no saved config');
   } catch (err) { alert('Network error: ' + err); }
 }
 
@@ -559,6 +606,17 @@ function updateLoadState(form, sel) {
   const selName = opt ? opt.value.trim() : '';
   const modelName = (sel.dataset.model || '').trim();
   loadBtn.disabled = !selName || selName === modelName;
+}
+
+// The bin is enabled only when a user-saved config (not a template) is
+// selected in the dropdown.
+function updateDeleteState(sel) {
+  const delBtn = document.getElementById('deletePresetBtn');
+  if (!delBtn || !sel) return;
+  const opt = sel.selectedOptions && sel.selectedOptions[0];
+  const isTemplate = opt && opt.dataset.template === '1';
+  const selName = opt ? opt.value.trim() : '';
+  delBtn.disabled = !selName || isTemplate;
 }
 
 // Sanitises a model name to a safe file stem, mirroring the server rule:
@@ -623,13 +681,17 @@ async function initPresets(form, modelName) {
     form._modelBaseline = {};
     updateSaveState(form);
     updateLoadState(form, sel);
+    updateDeleteState(sel);
   }
   if (loadBtn) loadBtn.addEventListener('click', () => loadPreset(form, sel));
   if (saveBtn) saveBtn.addEventListener('click', () => savePreset(form, sel));
+  const delBtn = document.getElementById('deletePresetBtn');
+  if (delBtn) delBtn.addEventListener('click', () => deletePreset(form, sel));
   const exportBtn = document.getElementById('exportTemplateBtn');
   if (exportBtn) exportBtn.addEventListener('click', () => exportTemplate(form, modelName));
-  // Dropdown changes only affect Load availability; Save depends on edits.
-  sel.addEventListener('change', () => updateLoadState(form, sel));
+  // Dropdown changes affect Load and Delete availability; Save depends on edits.
+  updateDeleteState(sel);
+  sel.addEventListener('change', () => { updateLoadState(form, sel); updateDeleteState(sel); });
   for (const f of PRESET_FIELDS) {
     const el = form.elements.namedItem(f);
     if (el) el.addEventListener('input', () => updateSaveState(form));
@@ -663,6 +725,7 @@ async function loadPresetSilent(form, sel, hasJson) {
   form._modelBaseline = hasJson ? snapshotForm(form) : {};
   updateSaveState(form);
   updateLoadState(form, sel);
+  updateDeleteState(sel);
 }
 </script>
 """
@@ -949,6 +1012,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_generate(mode="img2img")
         elif self.path == "/config/save":
             self._handle_config_save()
+        elif self.path == "/config/delete":
+            self._handle_config_delete()
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -986,6 +1051,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         fname = save_config(name, data)
         self._send_json(200, {"saved": fname, "presets": list_configs()})
+
+    def _handle_config_delete(self):
+        data = self._read_json_body()
+        name = str(data.get("name", "") or "")
+        if not _safe_config_name(name):
+            self._send_json(400, {"error": "invalid preset name"})
+            return
+        deleted = delete_config(name)
+        self._send_json(200, {"deleted": deleted, "presets": list_configs()})
 
     def _send_json(self, status: int, obj: dict):
         self._send(status, "application/json; charset=utf-8",
