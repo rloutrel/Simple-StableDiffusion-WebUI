@@ -622,8 +622,12 @@ function updateLoadState(form, sel) {
   if (!loadBtn || !sel) return;
   const opt = sel.selectedOptions && sel.selectedOptions[0];
   const selName = opt ? opt.value.trim() : '';
+  const isTemplate = opt && opt.dataset.template === '1';
   const modelName = (sel.dataset.model || '').trim();
-  loadBtn.disabled = !selName || selName === modelName;
+  // Load is disabled only for the model's own saved config (the non-template
+  // entry that was auto-preloaded); a same-named <T> template is a distinct
+  // preset and must remain loadable, as is any other model's entry.
+  loadBtn.disabled = !selName || (selName === modelName && !isTemplate);
 }
 
 // The bin is enabled only when a user-saved config (not a template) is
