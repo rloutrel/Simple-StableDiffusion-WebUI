@@ -353,6 +353,13 @@ def model_fieldset_html(meta: dict) -> str:
           <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.55rem .8rem;">&#128465;</button>
         </div>
       </div>
+      <label style="display:flex; align-items:center; gap:.5rem; margin-top:.8rem;">
+        <input type="checkbox" id="keepDimensions" value="1" style="width:auto;">
+        Do not overwrite dimensions (width, height)
+      </label>
+      <p style="color:#8a90a0; font-size:.75rem; margin:.3rem 0 0;">
+        When checked, loading a preset keeps the current width and height instead of overwriting them.
+      </p>
       {suggestion}
     </fieldset>""".format(note=note, suggestion=suggestion)
 
@@ -471,9 +478,16 @@ function fillSelect(sel, presets) {
   }
 }
 
+function keepDimensionsChecked() {
+  const cb = document.getElementById('keepDimensions');
+  return !!(cb && cb.checked);
+}
+
 function applyPresetToForm(form, data) {
   if (!data) return;
+  const keepDims = keepDimensionsChecked();
   for (const name of PRESET_FIELDS) {
+    if (keepDims && (name === 'width' || name === 'height')) continue;
     const el = form.elements.namedItem(name);
     if (!el || !(name in data)) continue;
     let v = data[name];
@@ -697,6 +711,10 @@ async function initPresets(form, modelName) {
     if (el) el.addEventListener('input', () => updateSaveState(form));
     if (el) el.addEventListener('change', () => updateSaveState(form));
   }
+  // Toggling the dimensions option only re-evaluates Save availability; it
+  // does not touch the form values themselves.
+  const keepCb = document.getElementById('keepDimensions');
+  if (keepCb) keepCb.addEventListener('change', () => updateSaveState(form));
 }
 
 // Adds a placeholder option for the model name when no preset exists for it
