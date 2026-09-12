@@ -325,7 +325,7 @@ def model_fieldset_html(meta: dict) -> str:
             suggestion = (
                 "<div style='margin:.6rem 0 0'>"
                 "<p style='color:#8a90a0;font-size:.72rem;margin:0 0 .3rem'>"
-                "No template ships for this model yet. If you are satisfied with the current value, "
+                "No template ships for this model yet. If you are satisfied with the current values, "
                 "please consider sharing your configuration. Export it and attach the file to a "
                 "GitHub issue so others get sensible defaults for this model.</p>"
                 "<div class=\"row\" style=\"align-items:center; gap:.5rem;\">"
