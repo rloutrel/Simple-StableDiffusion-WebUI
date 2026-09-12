@@ -219,6 +219,10 @@ PAGE_SHELL = """<!DOCTYPE html>
   button:hover {{ background:#3a5ae8; }}
   button:disabled {{ background:#2a2e38; color:#555; cursor:not-allowed; }}
   button:disabled:hover {{ background:#2a2e38; }}
+  #deletePresetBtn {{ background:#8b1e1e; color:#fff; }}
+  #deletePresetBtn:hover {{ background:#6f1717; }}
+  #deletePresetBtn:disabled {{ background:#2a2e38; color:#555; cursor:not-allowed; }}
+  #deletePresetBtn:disabled:hover {{ background:#2a2e38; }}
   .result {{ min-height: 200px; position: sticky; top: 1.5rem; }}
   .gallery {{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 1rem; }}
   .gallery img, .result img {{ width:100%; border-radius:8px 8px 0 0; border:1px solid #2a2e38; border-bottom:none; display:block; }}
