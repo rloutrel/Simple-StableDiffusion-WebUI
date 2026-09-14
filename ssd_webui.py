@@ -239,10 +239,15 @@ PAGE_SHELL = """<!DOCTYPE html>
   .dropzone {{ border:2px dashed #2a2e38; border-radius:8px; padding:1.2rem; text-align:center; color:#8a90a0; font-size:.85rem; cursor:pointer; }}
   .dropzone.dragover {{ border-color:#4c6fff; color:#eee; }}
   .preview {{ margin-top:.6rem; max-width:100%; border-radius:6px; display:none; }}
+  #toastBox {{ position:fixed; top:1rem; right:1rem; z-index:1000; display:flex; flex-direction:column; gap:.5rem; max-width:min(90vw, 22rem); }}
+  .toast {{ background:#181b22; border:1px solid #2a2e38; color:#eee; padding:.7rem .9rem; border-radius:8px; font-size:.85rem; box-shadow:0 4px 14px rgba(0,0,0,.45); opacity:0; transform:translateY(-.4rem); transition:opacity .25s ease, transform .25s ease; }}
+  .toast.show {{ opacity:1; transform:translateY(0); }}
+  .toast.error {{ border-color:#7a3030; background:#3a1c1c; color:#ffb3b3; }}
   footer {{ text-align:center; color:#555; font-size:.75rem; padding:2rem 0; }}
 </style>
 </head>
 <body>
+<div id="toastBox" aria-live="polite"></div>
 <header>
   <h1>Simple Stable Diffusion WebUI &mdash; {sd_url}</h1>
   <nav>
@@ -372,6 +377,21 @@ SHARED_SCRIPT = """
 <script>
 function renderResult(container, htmlText) {
   container.innerHTML = htmlText;
+}
+
+// Shows a transient, non-blocking toast message instead of a modal alert.
+// Used for preset load/save feedback. 'isError' renders the error style.
+function toast(message, isError) {
+  const box = document.getElementById('toastBox');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (isError ? ' error' : '');
+  el.textContent = message;
+  box.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  const remove = () => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); };
+  el._t = setTimeout(remove, 3500);
+  el.addEventListener('click', () => { clearTimeout(el._t); remove(); });
 }
 
 // Streams the generation response: the server sends one NDJSON line per
@@ -579,6 +599,7 @@ async function loadPreset(form, sel) {
     const data = await resp.json();
     applyPresetToForm(form, data);
     form._loadedPreset = {name: name, isTemplate: isTemplate, values: snapshotForm(form)};
+    toast('Loaded preset: ' + name + (isTemplate ? ' (template)' : ''));
     // Loading another preset only changes the form; the Save baseline stays
     // the model's own json, so Save is offered as soon as a loaded value differs
     // from it (and enabled outright when the model has no json yet).
@@ -617,7 +638,7 @@ async function savePreset(form, sel) {
     updateSaveState(form);
     updateLoadState(form, sel);
     updateDeleteState(sel);
-    alert('Saved as ' + obj.saved);
+    toast('Saved as ' + obj.saved);
   } catch (err) { alert('Network error: ' + err); }
 }
 
