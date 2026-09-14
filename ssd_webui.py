@@ -284,6 +284,18 @@ def options_html(values: list[str], selected: str = "") -> str:
     return "".join(out)
 
 
+# Scheduler options for the dropdown. "default" is a sentinel meaning "let the
+# sd.cpp server choose"; it is rendered as a stable first option labelled
+# "Default" so templates/users can express it explicitly, and filtered out of
+# any server-provided scheduler list to avoid duplicates.
+DEFAULT_SCHEDULER_OPT = '<option value="default" selected>Default</option>'
+
+
+def scheduler_options_html(schedulers: list[str]) -> str:
+    rest = options_html([s for s in schedulers if s and s != "default"])
+    return DEFAULT_SCHEDULER_OPT + rest
+
+
 def save_field_html() -> str:
     if CONFIG["allow_save"]:
         return """
@@ -561,8 +573,6 @@ function applyPresetToForm(form, data) {
     const el = form.elements.namedItem(name);
     if (!el || !(name in data)) continue;
     let v = data[name];
-    // scheduler 'default' means "let the server choose" -> empty option.
-    if (name === 'scheduler' && v === 'default') v = '';
     el.value = v;
   }
 }
@@ -851,7 +861,7 @@ async function loadPresetSilent(form, sel, hasJson) {
 
 def txt2img_html(meta: dict) -> str:
     sampler_opts = options_html(meta.get("samplers", []), "euler_a")
-    scheduler_opts = options_html(meta.get("schedulers", []))
+    scheduler_opts = scheduler_options_html(meta.get("schedulers", []))
     model_name_js = js_string((meta.get("models") or [""])[0])
     return f"""
 <div>
@@ -883,7 +893,7 @@ def txt2img_html(meta: dict) -> str:
       <label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label>
       <select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select>
       <label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label>
-      <select name="scheduler">{scheduler_opts or '<option value="">(server default)</option>'}</select>
+      <select name="scheduler">{scheduler_opts}</select>
       {save_field_html()}
     </fieldset>
 
@@ -911,7 +921,7 @@ initPresets(form, {model_name_js});
 
 def img2img_html(meta: dict) -> str:
     sampler_opts = options_html(meta.get("samplers", []), "euler_a")
-    scheduler_opts = options_html(meta.get("schedulers", []))
+    scheduler_opts = scheduler_options_html(meta.get("schedulers", []))
     model_name_js = js_string((meta.get("models") or [""])[0])
     return f"""
 <div>
@@ -952,7 +962,7 @@ def img2img_html(meta: dict) -> str:
       <label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label>
       <select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select>
       <label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label>
-      <select name="scheduler">{scheduler_opts or '<option value="">(server default)</option>'}</select>
+      <select name="scheduler">{scheduler_opts}</select>
       {save_field_html()}
     </fieldset>
 
@@ -1210,7 +1220,7 @@ class Handler(BaseHTTPRequestHandler):
         }
         if data.get("sampler_name"):
             payload["sampler_name"] = data["sampler_name"]
-        if data.get("scheduler"):
+        if data.get("scheduler") and data["scheduler"] != "default":
             payload["scheduler"] = data["scheduler"]
 
         if not payload["prompt"]:
