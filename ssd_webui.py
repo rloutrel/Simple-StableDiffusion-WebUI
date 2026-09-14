@@ -885,19 +885,17 @@ def txt2img_html(meta: dict) -> str:
       <div class="row">
         <div><label title="Image width in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Width</label><input type="number" name="width" value="512" step="8" min="64"></div>
         <div><label title="Image height in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Height</label><input type="number" name="height" value="512" step="8" min="64"></div>
+        <div><label title="How many images to generate in one click, using the same prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="30"></div>
       </div>
       <div class="row">
         <div><label title="Number of denoising steps. More steps can improve detail but takes longer; gains flatten out past ~20-40 for most samplers.">Steps</label><input type="number" name="steps" value="20" min="1" max="150"></div>
         <div><label title="Classifier-Free Guidance scale: how closely the image should follow the prompt. Low values (~1-4) give more freedom/creativity, high values (~10+) follow the prompt more strictly but can look over-saturated or distorted.">CFG scale</label><input type="number" name="cfg_scale" value="7" step="0.1" min="0"></div>
+        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
       </div>
       <div class="row">
-        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
-        <div><label title="How many images to generate in one click, using the same prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="30"></div>
+        <div><label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label><select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select></div>
+        <div><label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label><select name="scheduler">{scheduler_opts}</select></div>
       </div>
-      <label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label>
-      <select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select>
-      <label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label>
-      <select name="scheduler">{scheduler_opts}</select>
       {save_field_html()}
     </fieldset>
 
@@ -954,19 +952,17 @@ def img2img_html(meta: dict) -> str:
       <div class="row">
         <div><label title="Image width in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Width</label><input type="number" name="width" value="512" step="8" min="64"></div>
         <div><label title="Image height in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Height</label><input type="number" name="height" value="512" step="8" min="64"></div>
+        <div><label title="How many images to generate in one click, using the same source image, prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="16"></div>
       </div>
       <div class="row">
         <div><label title="Number of denoising steps. More steps can improve detail but takes longer; gains flatten out past ~20-40 for most samplers.">Steps</label><input type="number" name="steps" value="20" min="1" max="150"></div>
         <div><label title="Classifier-Free Guidance scale: how closely the image should follow the prompt. Low values (~1-4) give more freedom/creativity, high values (~10+) follow the prompt more strictly but can look over-saturated or distorted.">CFG scale</label><input type="number" name="cfg_scale" value="7" step="0.1" min="0"></div>
+        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
       </div>
       <div class="row">
-        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
-        <div><label title="How many images to generate in one click, using the same source image, prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="16"></div>
+        <div><label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label><select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select></div>
+        <div><label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label><select name="scheduler">{scheduler_opts}</select></div>
       </div>
-      <label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label>
-      <select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select>
-      <label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label>
-      <select name="scheduler">{scheduler_opts}</select>
       {save_field_html()}
     </fieldset>
 
