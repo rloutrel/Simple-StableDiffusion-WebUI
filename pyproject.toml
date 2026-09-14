@@ -1,0 +1,33 @@
+[tool.ruff]
+# Lint only; ruff is run by CI (GitHub Action), never a runtime/installed
+# dependency of the app, which stays standard-library-only.
+line-length = 140
+target-version = "py39"
+extend-exclude = ["outputs", "presets"]
+
+[tool.ruff.lint]
+# Focus on real correctness/consistency issues, not cosmetic reformatting
+# of the existing inline-HTML string templates (which produce long lines).
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes (undefined names, unused imports, syntax)
+  "W",    # pycodestyle warnings
+  "B",    # flake8-bugbear
+  "UP",   # pyupgrade
+  "I",    # isort
+]
+ignore = [
+  "E501",   # line too long (HTML templates are intentionally long)
+  "E701",   # multiple statements on one line (compact helpers)
+  "E731",   # lambda assignment (used in a few spots)
+  "B008",   # function call in default argument (CONFIG dict literal is fine)
+  "UP007",  # X | None in annotations: keep for clarity on py3.9 target
+  "UP031",  # percent-format: legitimate for HTTP chunked encoding + log_message
+  "UP032",  # .format() vs f-string: cosmetic, keep diff minimal on upstream code
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E701"]
+
+[tool.ruff.format]
+quote-style = "double"
