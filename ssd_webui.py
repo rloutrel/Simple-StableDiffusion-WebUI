@@ -459,12 +459,23 @@ function fileToDataURL(file) {
 // allow-list so a preset cannot inject unexpected fields into generation.
 const PRESET_FIELDS = ['width','height','steps','cfg_scale','seed','sampler_name','scheduler','batch_size','denoising_strength'];
 
+function presetOptionKey(name, isTemplate) {
+  // A unique option value per preset: the bare name for user configs, and the
+  // name plus a sentinel suffix for templates. This keeps two same-named
+  // presets (a user *.json and a shipped *.json.template) selectable as
+  // distinct dropdown entries instead of colliding on an equal value.
+  return isTemplate ? name + '\u0001T' : name;
+}
+
 function fillSelect(sel, presets) {
   if (!sel) return;
   sel.innerHTML = '';
   // Sorted alphabetically; a name may exist both as a user config and a
   // shipped template, in which case both entries are shown (the template
-  // marked with a <T> suffix) so the user can load either.
+  // marked with a <T> suffix) so the user can load either. Each option carries
+  // the real preset name in dataset.name (the value sent to the server) and a
+  // distinct option value, so selecting a template never collides with the
+  // same-named user config.
   const list = (presets || []).slice().sort((a, b) =>
     a.name < b.name ? -1 : (a.name > b.name ? 1 : (a.is_template ? 1 : -1)));
   if (!list.length) {
@@ -475,11 +486,38 @@ function fillSelect(sel, presets) {
   }
   for (const p of list) {
     const o = document.createElement('option');
-    o.value = p.name;
+    o.value = presetOptionKey(p.name, p.is_template);
+    o.dataset.name = p.name;
     o.textContent = p.name + (p.is_template ? ' <T>' : '');
     if (p.is_template) o.dataset.template = '1';
     sel.appendChild(o);
   }
+}
+
+// Selects the option matching a preset name (and template-ness), preferring a
+// user config over a template when both exist for the name. Used by init so
+// "select the model's entry" works even though template options carry a
+// distinct value and cannot be matched by setting sel.value to the bare name.
+function selectPreset(sel, name, isTemplate) {
+  if (!sel || !name) return;
+  for (const o of sel.options) {
+    if (o.dataset.name === name && (isTemplate ? o.dataset.template === '1' : o.dataset.template !== '1')) {
+      o.selected = true; return;
+    }
+  }
+}
+
+// Returns the real preset name carried by the currently-selected option, or
+// '' when nothing meaningful is selected.
+function selectedPresetName(sel) {
+  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+  return opt ? (opt.dataset.name || opt.value || '').trim() : '';
+}
+
+// Whether the currently-selected option is a shipped template.
+function selectedIsTemplate(sel) {
+  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+  return !!(opt && opt.dataset.template === '1');
 }
 
 function keepDimensionsChecked() {
@@ -523,10 +561,9 @@ async function refreshPresets(sel) {
 }
 
 async function loadPreset(form, sel) {
-  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
-  const name = opt ? opt.value.trim() : '';
+  const name = selectedPresetName(sel);
   if (!name) { alert('No preset selected.'); return; }
-  const isTemplate = opt && opt.dataset.template === '1';
+  const isTemplate = selectedIsTemplate(sel);
   const url = '/config/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : '');
   try {
     const resp = await fetch(url);
@@ -561,7 +598,7 @@ async function savePreset(form, sel) {
     if (sel) await refreshPresets(sel);
     // Re-select the just-saved model entry (now a non-template one) so the
     // form reflects that a config exists for this model.
-    if (sel) sel.value = name;
+    if (sel) selectPreset(sel, name, false);
     // The saved values become the new model baseline.
     form._modelBaseline = snapshotForm(form);
     updateSaveState(form);
@@ -575,10 +612,9 @@ async function savePreset(form, sel) {
 // (*.json); the bin is disabled for shipped templates (*.json.template),
 // which are read-only.
 async function deletePreset(form, sel) {
-  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
-  const name = opt ? opt.value.trim() : '';
+  const name = selectedPresetName(sel);
   if (!name) { alert('No preset selected.'); return; }
-  if (opt && opt.dataset.template === '1') { alert('Templates cannot be deleted.'); return; }
+  if (selectedIsTemplate(sel)) { alert('Templates cannot be deleted.'); return; }
   if (!confirm('Delete the saved config for "' + name + '"?')) return;
   try {
     const resp = await fetch('/config/delete', {
@@ -620,9 +656,8 @@ function updateSaveState(form) {
 function updateLoadState(form, sel) {
   const loadBtn = document.getElementById('loadPresetBtn');
   if (!loadBtn || !sel) return;
-  const opt = sel.selectedOptions && sel.selectedOptions[0];
-  const selName = opt ? opt.value.trim() : '';
-  const isTemplate = opt && opt.dataset.template === '1';
+  const selName = selectedPresetName(sel);
+  const isTemplate = selectedIsTemplate(sel);
   const modelName = (sel.dataset.model || '').trim();
   // Load is disabled only for the model's own saved config (the non-template
   // entry that was auto-preloaded); a same-named <T> template is a distinct
@@ -635,9 +670,8 @@ function updateLoadState(form, sel) {
 function updateDeleteState(sel) {
   const delBtn = document.getElementById('deletePresetBtn');
   if (!delBtn || !sel) return;
-  const opt = sel.selectedOptions && sel.selectedOptions[0];
-  const isTemplate = opt && opt.dataset.template === '1';
-  const selName = opt ? opt.value.trim() : '';
+  const isTemplate = selectedIsTemplate(sel);
+  const selName = selectedPresetName(sel);
   delBtn.disabled = !selName || isTemplate;
 }
 
@@ -692,14 +726,14 @@ async function initPresets(form, modelName) {
     // Select the model's entry and preload its values silently. Save is
     // enabled only when a value differs from the model's json; if there is no
     // json yet (template-only), Save is enabled so the user can create it.
-    sel.value = modelName;
+    selectPreset(sel, modelName, !jsonHit);
     await loadPresetSilent(form, sel, jsonHit);
   } else {
     // No config/template for this model: add a (placeholder) entry for the
     // model, select it, keep the global defaults, enable Save so the user can
     // create the model's json, and disable Load (nothing else to load).
     addModelEntryIfMissing(sel, modelName);
-    sel.value = modelName;
+    selectPreset(sel, modelName, false);
     form._modelBaseline = {};
     updateSaveState(form);
     updateLoadState(form, sel);
@@ -729,9 +763,10 @@ async function initPresets(form, modelName) {
 // yet, so the dropdown reflects that this model will be the save target.
 function addModelEntryIfMissing(sel, modelName) {
   if (!sel || !modelName) return;
-  for (const o of sel.options) if (o.value === modelName) return;
+  for (const o of sel.options) if (o.dataset.name === modelName) return;
   const o = document.createElement('option');
   o.value = modelName;
+  o.dataset.name = modelName;
   o.textContent = modelName;
   o.dataset.placeholder = '1';
   sel.appendChild(o);
@@ -739,11 +774,11 @@ function addModelEntryIfMissing(sel, modelName) {
 
 // Silent preload: like loadPreset but without the alert path; used on init.
 async function loadPresetSilent(form, sel, hasJson) {
-  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
-  const name = opt ? opt.value.trim() : '';
+  const name = selectedPresetName(sel);
   if (!name) { form._modelBaseline = {}; updateSaveState(form); updateLoadState(form, sel); return; }
+  const isTemplate = selectedIsTemplate(sel);
   try {
-    const resp = await fetch('/config/load?name=' + encodeURIComponent(name));
+    const resp = await fetch('/config/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : ''));
     if (resp.ok) applyPresetToForm(form, await resp.json());
   } catch (err) { console.warn('preset load failed', err); }
   // Save is enabled when there is no json for the model yet (creating it is
