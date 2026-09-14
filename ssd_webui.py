@@ -117,8 +117,12 @@ def _safe_config_name(name: str) -> str:
     """Sanitises a user-supplied config name to a safe file stem: only
     alphanumerics, dash and underscore are kept, extension stripped."""
     stem = os.path.basename(name).strip()
-    stem = stem[:-5] if stem.lower().endswith(".json") else stem
-    stem = stem[:-9] if stem.lower().endswith(".template") else stem
+    # Strip the full template extension first (.json.template), then a bare
+    # .json, so "model.json.template" -> "model" rather than "modeljson".
+    if stem.lower().endswith(".json.template"):
+        stem = stem[:-len(".json.template")]
+    elif stem.lower().endswith(".json"):
+        stem = stem[:-len(".json")]
     return "".join(c for c in stem if c.isalnum() or c in "-_")
 
 
@@ -1101,7 +1105,7 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 
-    # GET 
+    # GET
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             meta = sd_meta()
