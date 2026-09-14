@@ -190,6 +190,14 @@ def delete_config(name: str) -> bool:
 # HTML templates (plain Python strings, no external templating engine) #
 ########################################################################
 
+# Monochrome inline-SVG icons for the preset toolbar buttons. They use
+# currentColor so they inherit the button text colour (greyed when disabled)
+# and stay consistent with the dark theme, unlike colourful emoji glyphs.
+_SVG_OPEN = '<svg viewBox="0 0 24 24" width="1.15rem" height="1.15rem" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none" aria-hidden="true">'
+ICON_LOAD = _SVG_OPEN + '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>'
+ICON_SAVE = _SVG_OPEN + '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4"/><path d="M8 14h8v6H8z"/></svg>'
+ICON_DELETE = _SVG_OPEN + '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+
 PAGE_SHELL = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -219,8 +227,7 @@ PAGE_SHELL = """<!DOCTYPE html>
   button:hover {{ background:#3a5ae8; }}
   button:disabled {{ background:#2a2e38; color:#555; cursor:not-allowed; }}
   button:disabled:hover {{ background:#2a2e38; }}
-  #deletePresetBtn {{ background:#8b1e1e; color:#fff; }}
-  #deletePresetBtn:hover {{ background:#6f1717; }}
+  #deletePresetBtn:hover {{ background:#8b1e1e; color:#fff; }}
   #deletePresetBtn:disabled {{ background:#2a2e38; color:#555; cursor:not-allowed; }}
   #deletePresetBtn:disabled:hover {{ background:#2a2e38; }}
   .result {{ min-height: 200px; position: sticky; top: 1.5rem; }}
@@ -365,13 +372,13 @@ def model_fieldset_html(meta: dict) -> str:
           <select id="presetSelect"></select>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="loadPresetBtn" title="Load the selected preset into the form" disabled style="width:auto; margin:0; padding:.55rem .7rem; font-size:1rem; line-height:1;">&#x1F4E5;</button>
+          <button type="button" id="loadPresetBtn" title="Load the selected preset into the form" disabled style="width:auto; margin:0; padding:.4rem .5rem; line-height:0;">{ICON_LOAD}</button>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.55rem .7rem; font-size:1rem; line-height:1;">&#x1F4BE;</button>
+          <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.4rem .5rem; line-height:0;">{ICON_SAVE}</button>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.55rem .7rem; font-size:1rem; line-height:1;">&#x1F5D1;</button>
+          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.4rem .5rem; line-height:0;">{ICON_DELETE}</button>
         </div>
       </div>
       <label style="display:flex; align-items:center; gap:.5rem; margin-top:.8rem;">
@@ -382,7 +389,7 @@ def model_fieldset_html(meta: dict) -> str:
         When checked, loading a preset keeps the current width and height instead of overwriting them.
       </p>
       {suggestion}
-    </fieldset>""".format(note=note, suggestion=suggestion)
+    </fieldset>""".format(note=note, suggestion=suggestion, ICON_LOAD=ICON_LOAD, ICON_SAVE=ICON_SAVE, ICON_DELETE=ICON_DELETE)
 
 
 SHARED_SCRIPT = """
