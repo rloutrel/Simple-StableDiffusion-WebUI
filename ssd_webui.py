@@ -35,7 +35,7 @@ from urllib.parse import parse_qs
 CONFIG = {
     "sd_url": "http://127.0.0.1:8083",
     "output_dir": Path("./outputs"),
-    "config_dir": Path("./config"),
+    "presets_dir": Path("./presets"),
     "timeout": 300,
     "allow_save": True,   # if False, no image can ever be written to disk
 }
@@ -125,14 +125,14 @@ def _safe_config_name(name: str) -> str:
 def list_configs() -> list[dict]:
     """Returns the available presets: user-saved configs (*.json) and the
     shipped templates (*.json.template), each as {name, is_template}."""
-    CONFIG["config_dir"].mkdir(parents=True, exist_ok=True)
+    CONFIG["presets_dir"].mkdir(parents=True, exist_ok=True)
     out = []
-    for f in sorted(CONFIG["config_dir"].glob("*.json")):
+    for f in sorted(CONFIG["presets_dir"].glob("*.json")):
         name = f.name[:-len(".json")] if f.name.endswith(".json") else f.stem
         out.append({"name": name, "is_template": False})
     # Templates are always listed, even when a same-named user config exists,
     # so both can be selected and loaded independently.
-    for f in sorted(CONFIG["config_dir"].glob("*.json.template")):
+    for f in sorted(CONFIG["presets_dir"].glob("*.json.template")):
         name = f.name[:-len(".json.template")] if f.name.endswith(".json.template") else f.stem
         out.append({"name": name, "is_template": True})
     return out
@@ -146,7 +146,7 @@ def load_config(name: str, as_template: bool = False) -> dict:
     stem = _safe_config_name(name)
     if not stem:
         return {}
-    cdir = CONFIG["config_dir"]
+    cdir = CONFIG["presets_dir"]
     candidates = [cdir / f"{stem}.json.template"] if as_template else [
         cdir / f"{stem}.json", cdir / f"{stem}.json.template",
     ]
@@ -161,24 +161,24 @@ def load_config(name: str, as_template: bool = False) -> dict:
 
 
 def save_config(name: str, data: dict) -> str:
-    """Saves a preset as <name>.json in the config dir, keeping only the known
+    """Saves a preset as <name>.json in the presets dir, keeping only the known
     config fields. Returns the file name actually written (sanitised)."""
-    stem = _safe_config_name(name) or "config"
-    CONFIG["config_dir"].mkdir(parents=True, exist_ok=True)
-    fpath = CONFIG["config_dir"] / f"{stem}.json"
+    stem = _safe_config_name(name) or "preset"
+    CONFIG["presets_dir"].mkdir(parents=True, exist_ok=True)
+    fpath = CONFIG["presets_dir"] / f"{stem}.json"
     payload = {k: data[k] for k in CONFIG_FIELDS if k in data and data[k] is not None}
     fpath.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return f"{stem}.json"
 
 
 def delete_config(name: str) -> bool:
-    """Deletes a user-saved preset (<name>.json) from the config dir. Only the
+    """Deletes a user-saved preset (<name>.json) from the presets dir. Only the
     user config is removed, never a shipped template. Returns True if a file
     was deleted, False if it did not exist (templates are never deleted)."""
     stem = _safe_config_name(name)
     if not stem:
         return False
-    fpath = CONFIG["config_dir"] / f"{stem}.json"
+    fpath = CONFIG["presets_dir"] / f"{stem}.json"
     try:
         fpath.unlink()
         return True
@@ -338,7 +338,7 @@ def model_fieldset_html(meta: dict) -> str:
     suggestion = ""
     if model_name:
         stem = _safe_config_name(model_name)
-        if not (CONFIG["config_dir"] / f"{stem}.json.template").is_file():
+        if not (CONFIG["presets_dir"] / f"{stem}.json.template").is_file():
             suggestion = (
                 "<div style='margin:.6rem 0 0'>"
                 "<p style='color:#8a90a0;font-size:.72rem;margin:0 0 .3rem'>"
@@ -361,7 +361,7 @@ def model_fieldset_html(meta: dict) -> str:
       {note}
       <div class="row" style="align-items:flex-end;">
         <div style="flex:2;">
-          <label title="Preset saved on the server (./config). Load applies the preset's settings to the form; Save stores the current settings under the loaded model name.">Preset</label>
+          <label title="Preset saved on the server (./presets). Load applies the preset's settings to the form; Save stores the current settings under the loaded model name.">Preset</label>
           <select id="presetSelect"></select>
         </div>
         <div style="flex:0 0 auto;">
@@ -490,7 +490,7 @@ function fileToDataURL(file) {
   });
 }
 
-// --- Preset loader / saver (./config/*.json + *.json.template) ---
+// --- Preset loader / saver (./presets/*.json + *.json.template) ---
 // Configurable numeric/text fields a preset can carry. Mirrors the server
 // allow-list so a preset cannot inject unexpected fields into generation.
 const PRESET_FIELDS = ['width','height','steps','cfg_scale','seed','sampler_name','scheduler','batch_size','denoising_strength'];
@@ -595,7 +595,7 @@ function snapshotForm(form) {
 async function refreshPresets(sel) {
   let presets = [];
   try {
-    const resp = await fetch('/config');
+    const resp = await fetch('/presets');
     presets = (await resp.json()).presets || [];
   } catch (err) { console.warn('preset list failed', err); }
   fillSelect(sel, presets);
@@ -606,7 +606,7 @@ async function loadPreset(form, sel) {
   const name = selectedPresetName(sel);
   if (!name) { alert('No preset selected.'); return; }
   const isTemplate = selectedIsTemplate(sel);
-  const url = '/config/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : '');
+  const url = '/presets/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : '');
   try {
     const resp = await fetch(url);
     if (!resp.ok) { alert('Could not load preset.'); return; }
@@ -633,7 +633,7 @@ async function savePreset(form, sel) {
     if (el && el.value !== '') data[f] = el.value;
   }
   try {
-    const resp = await fetch('/config/save', {
+    const resp = await fetch('/presets/save', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(data)
@@ -665,7 +665,7 @@ async function deletePreset(form, sel) {
   if (selectedIsTemplate(sel)) { alert('Templates cannot be deleted.'); return; }
   if (!confirm('Delete the saved config for "' + name + '"?')) return;
   try {
-    const resp = await fetch('/config/delete', {
+    const resp = await fetch('/presets/delete', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({name: name})
@@ -848,7 +848,7 @@ async function loadPresetSilent(form, sel, hasJson) {
   const isTemplate = selectedIsTemplate(sel);
   let loaded = false;
   try {
-    const resp = await fetch('/config/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : ''));
+    const resp = await fetch('/presets/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : ''));
     if (resp.ok) { applyPresetToForm(form, await resp.json()); loaded = true; }
   } catch (err) { console.warn('preset load failed', err); }
   if (loaded) form._loadedPreset = {name: name, isTemplate: isTemplate, values: snapshotForm(form)};
@@ -1130,8 +1130,8 @@ class Handler(BaseHTTPRequestHandler):
             ctype = mimetypes.guess_type(str(fpath))[0] or "application/octet-stream"
             self._send(200, ctype, fpath.read_bytes())
 
-        elif self.path.startswith("/config"):
-            self._handle_config_get()
+        elif self.path.startswith("/presets"):
+            self._handle_presets_get()
 
         else:
             self._send(404, "text/plain", b"Not found")
@@ -1142,10 +1142,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_generate(mode="txt2img")
         elif self.path == "/generate/img2img":
             self._handle_generate(mode="img2img")
-        elif self.path == "/config/save":
-            self._handle_config_save()
-        elif self.path == "/config/delete":
-            self._handle_config_delete()
+        elif self.path == "/presets/save":
+            self._handle_presets_save()
+        elif self.path == "/presets/delete":
+            self._handle_presets_delete()
         else:
             self._send(404, "text/plain", b"Not found")
 
@@ -1158,12 +1158,12 @@ class Handler(BaseHTTPRequestHandler):
             data = dict(parse_qs(raw.decode("utf-8")))
             return {k: v[0] for k, v in data.items()}
 
-    def _handle_config_get(self):
-        # GET /config              -> {"presets": [ {name, is_template}, ... ]}
-        # GET /config/load?name=X  -> the preset fields (template=1 to load a
+    def _handle_presets_get(self):
+        # GET /presets              -> {"presets": [ {name, is_template}, ... ]}
+        # GET /presets/load?name=X  -> the preset fields (template=1 to load a
         #                            shipped *.json.template instead)
         parts = self.path.split("?", 1)
-        if parts[0] == "/config":
+        if parts[0] == "/presets":
             self._send_json(200, {"presets": list_configs()})
             return
         qs = {k: v[0] for k, v in parse_qs(parts[1]).items()} if len(parts) > 1 else {}
@@ -1175,7 +1175,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json(200, data)
 
-    def _handle_config_save(self):
+    def _handle_presets_save(self):
         data = self._read_json_body()
         name = str(data.pop("name", "") or "")
         if not _safe_config_name(name):
@@ -1184,7 +1184,7 @@ class Handler(BaseHTTPRequestHandler):
         fname = save_config(name, data)
         self._send_json(200, {"saved": fname, "presets": list_configs()})
 
-    def _handle_config_delete(self):
+    def _handle_presets_delete(self):
         data = self._read_json_body()
         name = str(data.get("name", "") or "")
         if not _safe_config_name(name):
@@ -1337,7 +1337,7 @@ def parse_args(argv=None):
     p.add_argument("--port", type=int, default=8083, help="Listen port for the web interface")
     p.add_argument("--output-dir", default="./outputs",
                    help="Folder used to save generated images (only when saving is requested)")
-    p.add_argument("--config-dir", default="./config",
+    p.add_argument("--presets-dir", default="./presets",
                    help="Folder used to store generation presets (*.json / *.json.template)")
     p.add_argument("--timeout", type=int, default=300, help="Timeout (s) for calls to the sd.cpp server")
     p.add_argument("--open-browser", action="store_true", help="Automatically open the browser on startup")
@@ -1352,7 +1352,7 @@ def main(argv=None):
     args = parse_args(argv)
     CONFIG["sd_url"] = args.sd_url
     CONFIG["output_dir"] = Path(args.output_dir)
-    CONFIG["config_dir"] = Path(args.config_dir)
+    CONFIG["presets_dir"] = Path(args.presets_dir)
     CONFIG["timeout"] = args.timeout
     CONFIG["allow_save"] = not args.disable_save
     if CONFIG["allow_save"]:
