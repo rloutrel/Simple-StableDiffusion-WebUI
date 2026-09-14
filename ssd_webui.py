@@ -213,7 +213,7 @@ PAGE_SHELL = """<!DOCTYPE html>
   label[title] {{ cursor: help; border-bottom: 1px dotted #444; width: fit-content; }}
   input, select, textarea {{ width:100%; padding:.5rem; background:#1c2029; border:1px solid #2a2e38; color:#eee; border-radius:6px; font-size:.9rem; font-family: inherit; }}
   textarea {{ min-height: 70px; resize: vertical; }}
-  .row {{ display:flex; gap:.6rem; }}
+  .row {{ display:flex; gap:.6rem; align-items:flex-end; }}
   .row > div {{ flex:1; }}
   button {{ background:#4c6fff; color:white; border:none; padding:.7rem 1rem; border-radius:6px; font-size:.95rem; cursor:pointer; width:100%; margin-top:.8rem; }}
   button:hover {{ background:#3a5ae8; }}
@@ -359,7 +359,7 @@ def model_fieldset_html(meta: dict) -> str:
     <fieldset>
       <legend>Model</legend>
       {note}
-      <div class="row" style="align-items:flex-end;">
+      <div class="row">
         <div style="flex:2;">
           <label title="Preset saved on the server (./presets). Load applies the preset's settings to the form; Save stores the current settings under the loaded model name.">Preset</label>
           <select id="presetSelect"></select>
