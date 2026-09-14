@@ -190,6 +190,14 @@ def delete_config(name: str) -> bool:
 # HTML templates (plain Python strings, no external templating engine) #
 ########################################################################
 
+# Monochrome inline-SVG icons for the preset toolbar buttons. They use
+# currentColor so they inherit the button text colour (greyed when disabled)
+# and stay consistent with the dark theme, unlike colourful emoji glyphs.
+_SVG_OPEN = '<svg viewBox="0 0 24 24" width="1.15rem" height="1.15rem" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none" aria-hidden="true">'
+ICON_LOAD = _SVG_OPEN + '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>'
+ICON_SAVE = _SVG_OPEN + '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4"/><path d="M8 14h8v6H8z"/></svg>'
+ICON_DELETE = _SVG_OPEN + '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+
 PAGE_SHELL = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -213,14 +221,13 @@ PAGE_SHELL = """<!DOCTYPE html>
   label[title] {{ cursor: help; border-bottom: 1px dotted #444; width: fit-content; }}
   input, select, textarea {{ width:100%; padding:.5rem; background:#1c2029; border:1px solid #2a2e38; color:#eee; border-radius:6px; font-size:.9rem; font-family: inherit; }}
   textarea {{ min-height: 70px; resize: vertical; }}
-  .row {{ display:flex; gap:.6rem; }}
+  .row {{ display:flex; gap:.6rem; align-items:flex-end; }}
   .row > div {{ flex:1; }}
   button {{ background:#4c6fff; color:white; border:none; padding:.7rem 1rem; border-radius:6px; font-size:.95rem; cursor:pointer; width:100%; margin-top:.8rem; }}
   button:hover {{ background:#3a5ae8; }}
   button:disabled {{ background:#2a2e38; color:#555; cursor:not-allowed; }}
   button:disabled:hover {{ background:#2a2e38; }}
-  #deletePresetBtn {{ background:#8b1e1e; color:#fff; }}
-  #deletePresetBtn:hover {{ background:#6f1717; }}
+  #deletePresetBtn:hover {{ background:#8b1e1e; color:#fff; }}
   #deletePresetBtn:disabled {{ background:#2a2e38; color:#555; cursor:not-allowed; }}
   #deletePresetBtn:disabled:hover {{ background:#2a2e38; }}
   .result {{ min-height: 200px; position: sticky; top: 1.5rem; }}
@@ -359,19 +366,19 @@ def model_fieldset_html(meta: dict) -> str:
     <fieldset>
       <legend>Model</legend>
       {note}
-      <div class="row" style="align-items:flex-end;">
+      <div class="row">
         <div style="flex:2;">
           <label title="Preset saved on the server (./presets). Load applies the preset's settings to the form; Save stores the current settings under the loaded model name.">Preset</label>
           <select id="presetSelect"></select>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="loadPresetBtn" disabled style="width:auto; margin:0; padding:.55rem 1rem;">Load</button>
+          <button type="button" id="loadPresetBtn" title="Load the selected preset into the form" disabled style="width:auto; margin:0; padding:.4rem .5rem; line-height:0;">{ICON_LOAD}</button>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.55rem 1rem;">Save</button>
+          <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.4rem .5rem; line-height:0;">{ICON_SAVE}</button>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.55rem .8rem;">&#128465;</button>
+          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.4rem .5rem; line-height:0;">{ICON_DELETE}</button>
         </div>
       </div>
       <label style="display:flex; align-items:center; gap:.5rem; margin-top:.8rem;">
@@ -382,7 +389,7 @@ def model_fieldset_html(meta: dict) -> str:
         When checked, loading a preset keeps the current width and height instead of overwriting them.
       </p>
       {suggestion}
-    </fieldset>""".format(note=note, suggestion=suggestion)
+    </fieldset>""".format(note=note, suggestion=suggestion, ICON_LOAD=ICON_LOAD, ICON_SAVE=ICON_SAVE, ICON_DELETE=ICON_DELETE)
 
 
 SHARED_SCRIPT = """
@@ -885,19 +892,17 @@ def txt2img_html(meta: dict) -> str:
       <div class="row">
         <div><label title="Image width in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Width</label><input type="number" name="width" value="512" step="8" min="64"></div>
         <div><label title="Image height in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Height</label><input type="number" name="height" value="512" step="8" min="64"></div>
+        <div><label title="How many images to generate in one click, using the same prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="30"></div>
       </div>
       <div class="row">
         <div><label title="Number of denoising steps. More steps can improve detail but takes longer; gains flatten out past ~20-40 for most samplers.">Steps</label><input type="number" name="steps" value="20" min="1" max="150"></div>
         <div><label title="Classifier-Free Guidance scale: how closely the image should follow the prompt. Low values (~1-4) give more freedom/creativity, high values (~10+) follow the prompt more strictly but can look over-saturated or distorted.">CFG scale</label><input type="number" name="cfg_scale" value="7" step="0.1" min="0"></div>
+        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
       </div>
       <div class="row">
-        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
-        <div><label title="How many images to generate in one click, using the same prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="30"></div>
+        <div><label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label><select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select></div>
+        <div><label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label><select name="scheduler">{scheduler_opts}</select></div>
       </div>
-      <label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label>
-      <select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select>
-      <label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label>
-      <select name="scheduler">{scheduler_opts}</select>
       {save_field_html()}
     </fieldset>
 
@@ -954,19 +959,17 @@ def img2img_html(meta: dict) -> str:
       <div class="row">
         <div><label title="Image width in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Width</label><input type="number" name="width" value="512" step="8" min="64"></div>
         <div><label title="Image height in pixels. Must be a multiple of 8. Larger values need more VRAM and time.">Height</label><input type="number" name="height" value="512" step="8" min="64"></div>
+        <div><label title="How many images to generate in one click, using the same source image, prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="16"></div>
       </div>
       <div class="row">
         <div><label title="Number of denoising steps. More steps can improve detail but takes longer; gains flatten out past ~20-40 for most samplers.">Steps</label><input type="number" name="steps" value="20" min="1" max="150"></div>
         <div><label title="Classifier-Free Guidance scale: how closely the image should follow the prompt. Low values (~1-4) give more freedom/creativity, high values (~10+) follow the prompt more strictly but can look over-saturated or distorted.">CFG scale</label><input type="number" name="cfg_scale" value="7" step="0.1" min="0"></div>
+        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
       </div>
       <div class="row">
-        <div><label title="Random number generator seed. -1 picks a new random seed each time. Reusing the same seed (with the same settings) reproduces the same image.">Seed (-1 = random)</label><input type="number" name="seed" value="-1"></div>
-        <div><label title="How many images to generate in one click, using the same source image, prompt and settings.">Number of images</label><input type="number" name="batch_size" value="1" min="1" max="16"></div>
+        <div><label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label><select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select></div>
+        <div><label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label><select name="scheduler">{scheduler_opts}</select></div>
       </div>
-      <label title="The algorithm used to progressively turn noise into an image. Different samplers trade off speed, sharpness and how quickly they converge.">Sampler</label>
-      <select name="sampler_name">{sampler_opts or '<option value="euler_a">euler_a</option>'}</select>
-      <label title="Controls how the noise level (sigma) is spaced across steps. Works together with the sampler; changing it can affect detail and stability.">Scheduler</label>
-      <select name="scheduler">{scheduler_opts}</select>
       {save_field_html()}
     </fieldset>
 

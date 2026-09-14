@@ -2,7 +2,7 @@
   "width": 600,
   "height": 600,
   "steps": 4,
-  "cfg_scale": 0.5,
+  "cfg_scale": 0.8,
   "sampler_name": "euler",
   "scheduler": "default"
 }
