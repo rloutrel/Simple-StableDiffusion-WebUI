@@ -520,6 +520,14 @@ function selectedIsTemplate(sel) {
   return !!(opt && opt.dataset.template === '1');
 }
 
+// Whether the currently-selected option is a real, loadable preset (not the
+// model placeholder added when no preset exists for the loaded model, nor the
+// empty "(no preset yet)" stub).
+function selectedIsLoadable(sel) {
+  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+  return !!(opt && opt.dataset.name && opt.dataset.placeholder !== '1');
+}
+
 function keepDimensionsChecked() {
   const cb = document.getElementById('keepDimensions');
   return !!(cb && cb.checked);
@@ -568,7 +576,9 @@ async function loadPreset(form, sel) {
   try {
     const resp = await fetch(url);
     if (!resp.ok) { alert('Could not load preset.'); return; }
-    applyPresetToForm(form, await resp.json());
+    const data = await resp.json();
+    applyPresetToForm(form, data);
+    form._loadedPreset = {name: name, isTemplate: isTemplate, values: snapshotForm(form)};
     // Loading another preset only changes the form; the Save baseline stays
     // the model's own json, so Save is offered as soon as a loaded value differs
     // from it (and enabled outright when the model has no json yet).
@@ -599,7 +609,10 @@ async function savePreset(form, sel) {
     // Re-select the just-saved model entry (now a non-template one) so the
     // form reflects that a config exists for this model.
     if (sel) selectPreset(sel, name, false);
-    // The saved values become the new model baseline.
+    // The just-saved values now match the model's own (non-template) config,
+    // which is the loaded preset, so Load stays disabled until a field is
+    // edited away from it.
+    form._loadedPreset = {name: name, isTemplate: false, values: snapshotForm(form)};
     form._modelBaseline = snapshotForm(form);
     updateSaveState(form);
     updateLoadState(form, sel);
@@ -626,8 +639,12 @@ async function deletePreset(form, sel) {
     if (!resp.ok) { alert(obj.error || 'Delete failed.'); return; }
     if (sel) await refreshPresets(sel);
     // If the deleted entry was the model's own, clear the baseline so Save is
-    // offered again to recreate it.
-    if (name === (sel.dataset.model || '').trim()) form._modelBaseline = {};
+    // offered again to recreate it, and forget it as the loaded preset since
+    // the matching file no longer exists.
+    if (name === (sel.dataset.model || '').trim()) {
+      form._modelBaseline = {};
+      form._loadedPreset = null;
+    }
     updateSaveState(form);
     updateLoadState(form, sel);
     updateDeleteState(sel);
@@ -650,19 +667,33 @@ function updateSaveState(form) {
   saveBtn.disabled = !changed;
 }
 
-// Load is enabled only when the dropdown holds a loadable preset different
-// from the model's own (currently loaded) entry, so reloading the same values
-// is not offered. Disabled when nothing meaningful would change.
+// Load is enabled when applying the selected preset would change at least one
+// form value: a different preset is selected (the form shows another preset's
+// values), or the loaded preset is selected but a field has since been edited
+// away from it (Load restores it). Disabled for the model placeholder or when
+// the form already matches the selected (loaded) preset.
 function updateLoadState(form, sel) {
   const loadBtn = document.getElementById('loadPresetBtn');
   if (!loadBtn || !sel) return;
   const selName = selectedPresetName(sel);
+  if (!selName || !selectedIsLoadable(sel)) { loadBtn.disabled = true; return; }
   const isTemplate = selectedIsTemplate(sel);
-  const modelName = (sel.dataset.model || '').trim();
-  // Load is disabled only for the model's own saved config (the non-template
-  // entry that was auto-preloaded); a same-named <T> template is a distinct
-  // preset and must remain loadable, as is any other model's entry.
-  loadBtn.disabled = !selName || (selName === modelName && !isTemplate);
+  const loaded = form._loadedPreset;
+  // Load is enabled when loading the selected preset would change at least one
+  // form value. When the selected preset is the one already loaded into the
+  // form, that means the user has since edited a field away from it (so Load
+  // restores it). When a different preset is selected, the form currently
+  // shows another preset's values, so loading always changes something.
+  if (!loaded || loaded.name !== selName || !!loaded.isTemplate !== isTemplate) {
+    loadBtn.disabled = false;
+    return;
+  }
+  const cur = snapshotForm(form);
+  let changed = false;
+  for (const k of PRESET_FIELDS) {
+    if ((loaded.values[k] || '') !== (cur[k] || '')) { changed = true; break; }
+  }
+  loadBtn.disabled = !changed;
 }
 
 // The bin is enabled only when a user-saved config (not a template) is
@@ -734,6 +765,9 @@ async function initPresets(form, modelName) {
     // create the model's json, and disable Load (nothing else to load).
     addModelEntryIfMissing(sel, modelName);
     selectPreset(sel, modelName, false);
+    // The placeholder model entry has no saved values, so nothing is loaded
+    // into the form yet; Load is disabled until a real preset is selected.
+    form._loadedPreset = null;
     form._modelBaseline = {};
     updateSaveState(form);
     updateLoadState(form, sel);
@@ -750,8 +784,8 @@ async function initPresets(form, modelName) {
   sel.addEventListener('change', () => { updateLoadState(form, sel); updateDeleteState(sel); });
   for (const f of PRESET_FIELDS) {
     const el = form.elements.namedItem(f);
-    if (el) el.addEventListener('input', () => updateSaveState(form));
-    if (el) el.addEventListener('change', () => updateSaveState(form));
+    if (el) el.addEventListener('input', () => { updateSaveState(form); updateLoadState(form, sel); });
+    if (el) el.addEventListener('change', () => { updateSaveState(form); updateLoadState(form, sel); });
   }
   // Toggling the dimensions option only re-evaluates Save availability; it
   // does not touch the form values themselves.
@@ -777,10 +811,12 @@ async function loadPresetSilent(form, sel, hasJson) {
   const name = selectedPresetName(sel);
   if (!name) { form._modelBaseline = {}; updateSaveState(form); updateLoadState(form, sel); return; }
   const isTemplate = selectedIsTemplate(sel);
+  let loaded = false;
   try {
     const resp = await fetch('/config/load?name=' + encodeURIComponent(name) + (isTemplate ? '&template=1' : ''));
-    if (resp.ok) applyPresetToForm(form, await resp.json());
+    if (resp.ok) { applyPresetToForm(form, await resp.json()); loaded = true; }
   } catch (err) { console.warn('preset load failed', err); }
+  if (loaded) form._loadedPreset = {name: name, isTemplate: isTemplate, values: snapshotForm(form)};
   // Save is enabled when there is no json for the model yet (creating it is
   // always meaningful), or when the current values differ from the json.
   form._modelBaseline = hasJson ? snapshotForm(form) : {};
