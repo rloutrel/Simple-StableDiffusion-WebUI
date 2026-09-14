@@ -239,7 +239,7 @@ PAGE_SHELL = """<!DOCTYPE html>
   .dropzone {{ border:2px dashed #2a2e38; border-radius:8px; padding:1.2rem; text-align:center; color:#8a90a0; font-size:.85rem; cursor:pointer; }}
   .dropzone.dragover {{ border-color:#4c6fff; color:#eee; }}
   .preview {{ margin-top:.6rem; max-width:100%; border-radius:6px; display:none; }}
-  #toastBox {{ position:fixed; top:1rem; right:1rem; z-index:1000; display:flex; flex-direction:column; gap:.5rem; max-width:min(90vw, 22rem); }}
+  #toastBox {{ position:fixed; top:4rem; left:50%; transform:translateX(-50%); z-index:1000; display:flex; flex-direction:column; align-items:center; gap:.5rem; max-width:min(90vw, 22rem); }}
   .toast {{ background:#181b22; border:1px solid #2a2e38; color:#eee; padding:.7rem .9rem; border-radius:8px; font-size:.85rem; box-shadow:0 4px 14px rgba(0,0,0,.45); opacity:0; transform:translateY(-.4rem); transition:opacity .25s ease, transform .25s ease; }}
   .toast.show {{ opacity:1; transform:translateY(0); }}
   .toast.error {{ border-color:#7a3030; background:#3a1c1c; color:#ffb3b3; }}
