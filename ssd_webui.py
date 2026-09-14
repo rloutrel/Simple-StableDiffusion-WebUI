@@ -365,13 +365,13 @@ def model_fieldset_html(meta: dict) -> str:
           <select id="presetSelect"></select>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="loadPresetBtn" disabled style="width:auto; margin:0; padding:.55rem 1rem;">Load</button>
+          <button type="button" id="loadPresetBtn" title="Load the selected preset into the form" disabled style="width:auto; margin:0; padding:.55rem .7rem; font-size:1rem; line-height:1;">&#x1F4E5;</button>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.55rem 1rem;">Save</button>
+          <button type="button" id="savePresetBtn" title="Save for this model" disabled style="width:auto; margin:0; padding:.55rem .7rem; font-size:1rem; line-height:1;">&#x1F4BE;</button>
         </div>
         <div style="flex:0 0 auto;">
-          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.55rem .8rem;">&#128465;</button>
+          <button type="button" id="deletePresetBtn" title="Delete this model's saved config" disabled style="width:auto; margin:0; padding:.55rem .7rem; font-size:1rem; line-height:1;">&#x1F5D1;</button>
         </div>
       </div>
       <label style="display:flex; align-items:center; gap:.5rem; margin-top:.8rem;">
